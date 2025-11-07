@@ -3,7 +3,7 @@
 export default function AllFeaturesPanel() {
   return (
     <div className="h-full flex flex-col p-4">
-      <h2 className="text-lg font-semibold text-primary-700 mb-2">All Features & Actions</h2>
+      <h2 className="text-lg font-semibold text-primary-700 mb-2">Upcoming:</h2>
       <div className="text-gray-500 text-sm">
         {/* Add more features/actions here as needed */}
         <ul className="list-disc pl-5 space-y-1">

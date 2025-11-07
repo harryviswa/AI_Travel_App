@@ -259,25 +259,17 @@ router.post('/generate', async (req, res) => {
       .map((p: Place, i: number) => `${i + 1}. ${p.name} (${p.address})`)
       .join('\n');
 
-    const prompt = `You are a travel planning expert. Create 3 different optimized car travel itineraries for the following places:
+  const prompt = `You are a travel planning expert. Given the following list of places for a road trip:
 
 ${placesInfo}
 
-Travel Dates: ${startDate || 'Flexible'} to ${endDate || 'Flexible'}
-Preferences: ${preferences || 'None specified'}
+Suggest a single optimized itinerary that:
+1. Selects the top 5 must-visit places from the user's list (based on popularity, uniqueness, or experience).
+2. Recommends up to 5 additional must-visit spots that are along the route or in between the user's places (these can be famous attractions, hidden gems, or local favorites).
+3. For each place (user or in-between), provide: name, address, a short highlight/why visit, and suggested duration.
+4. Return all suggestions in a single JSON array, each object with: { name, address, highlight, suggestedDuration, isUserPlace (true/false) }
 
-For each itinerary:
-1. Suggest a logical order of visits
-2. Recommend optimal time to spend at each location
-3. Include suggestions for nearby must-visit attractions
-4. Consider driving time and minimize backtracking
-
-Format your response as a JSON array with 3 itinerary objects. Each should have:
-- title: A catchy name for the itinerary
-- description: Brief overview
-- days: Array of day objects with { dayNumber, places: Array of { placeId, name, suggestedDuration, timeSlot, nearbyRecommendations } }
-
-Keep it concise and practical. ONLY respond with valid JSON, no other text.`;
+ONLY respond with a valid JSON array, no other text or formatting.`;
 
     let itineraries;
 
@@ -293,11 +285,27 @@ Keep it concise and practical. ONLY respond with valid JSON, no other text.`;
         const responseText = response.response;
         
         try {
-          // Try to parse JSON from the response
-          const jsonMatch = responseText.match(/\[[\s\S]*\]/);
-          itineraries = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
+          // Try to robustly extract the first valid JSON array from the response
+          let jsonMatch = responseText.match(/\[[\s\S]*\]/);
+          if (!jsonMatch) {
+            // Try to find the first { ... } object if array not found
+            jsonMatch = responseText.match(/\{[\s\S]*\}/);
+          }
+          if (jsonMatch) {
+            // Remove any trailing non-JSON characters after the array/object
+            let jsonStr = jsonMatch[0];
+            // Remove trailing characters after the last closing ] or }
+            if (jsonStr.lastIndexOf(']') > -1) {
+              jsonStr = jsonStr.slice(0, jsonStr.lastIndexOf(']') + 1);
+            } else if (jsonStr.lastIndexOf('}') > -1) {
+              jsonStr = jsonStr.slice(0, jsonStr.lastIndexOf('}') + 1);
+            }
+            itineraries = JSON.parse(jsonStr);
+          } else {
+            throw new Error('No valid JSON found in Ollama response');
+          }
         } catch (parseError) {
-          console.error('Error parsing Ollama response:', parseError);
+          console.error('Error parsing Ollama response:', parseError, '\nRaw response:', responseText);
           itineraries = createFallbackItineraries(places);
         }
       } catch (error) {
